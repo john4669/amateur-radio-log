@@ -25,7 +25,7 @@ Built with PySide6 (Qt6) and Python.
 
 - Python 3.8+
 - PySide6
-- Linux (tested on Ubuntu)
+- Linux, macOS, or Windows
 
 ### Optional
 
@@ -53,9 +53,16 @@ This creates a Python virtual environment and installs PySide6.
 
 Or create a desktop shortcut:
 
+**Linux:**
 ```bash
 ./create-shortcut-linux.sh
 ```
+
+**macOS:**
+```bash
+./create-shortcut-mac.sh
+```
+This creates a `W0BCQ Logger.app` bundle in the project folder. Drag it to your Desktop or Applications folder. On first launch, right-click > Open if macOS shows a security warning.
 
 ### First-Time Setup
 
@@ -113,7 +120,8 @@ amateur-radio-log/
 ├── requirements.txt     # Python dependencies
 ├── setup.sh             # First-time setup script
 ├── RadioLog.sh          # Launcher script
-├── create-shortcut-linux.sh  # Desktop shortcut creator
+├── create-shortcut-linux.sh  # Desktop shortcut creator (Linux)
+├── create-shortcut-mac.sh    # App bundle creator (macOS)
 ├── icon_256.png         # Application icon
 └── .gitignore
 ```

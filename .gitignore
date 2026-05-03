@@ -1,0 +1,27 @@
+# Virtual environment
+venv/
+
+# Database (each user creates their own)
+*.db
+
+# Database backups
+backups/
+
+# Runtime logs
+logs/
+
+# Settings (each user has their own)
+settings.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller build output
+build/
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db

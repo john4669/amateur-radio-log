@@ -399,6 +399,33 @@ def apply_theme(app, theme_name):
 
 
 # ════════════════════════════════════════════════════════════════════
+#  Callsign Lookup Worker
+# ════════════════════════════════════════════════════════════════════
+
+class CallsignLookupWorker(QThread):
+    """Runs QRZ + FCC callsign lookup off the main thread."""
+    finished = Signal(str, dict)  # source: "qrz" | "fcc" | "none", data dict
+
+    def __init__(self, call, username, password):
+        super().__init__()
+        self._call = call
+        self._username = username
+        self._password = password
+
+    def run(self):
+        if self._username and self._password:
+            result = qrz_lookup(self._call, self._username, self._password)
+            if result:
+                self.finished.emit("qrz", result)
+                return
+        fcc = fcc_db.lookup(self._call)
+        if fcc:
+            self.finished.emit("fcc", fcc)
+        else:
+            self.finished.emit("none", {})
+
+
+# ════════════════════════════════════════════════════════════════════
 #  QSO Dialog
 # ════════════════════════════════════════════════════════════════════
 
@@ -423,6 +450,7 @@ class QSODialog(QDialog):
         self._pota_activation = pota_activation
         self._suppress_auto = False
         self._previous_mode = ""
+        self._lookup_worker = None
 
         self.setWindowTitle("Edit QSO" if qso else "Add QSO")
         self.setMinimumWidth(450)
@@ -733,69 +761,70 @@ class QSODialog(QDialog):
             self.call_edit.setCursorPosition(pos)
 
     def _lookup_callsign(self):
-        """Look up call sign on QRZ when the field loses focus."""
+        """Start a background callsign lookup (QRZ then FCC fallback)."""
         call = self.call_edit.text().strip().upper()
         if not call or len(call) < 3:
             return
 
-        username = config.get("qrz_username") or ""
-        password = config.get("qrz_password") or ""
-
-        self._qrz_status.setText("Looking up...")
+        self._qrz_status.setText("Looking up…")
         self._qrz_status.setStyleSheet("color: gray; font-size: 11px;")
-        QApplication.processEvents()
 
-        result = None
-        if username and password:
-            result = qrz_lookup(call, username, password)
-        if result:
-            fname = result.get("fname", "")
-            lname = result.get("name", "")
+        # Discard any previous in-flight lookup
+        if self._lookup_worker and self._lookup_worker.isRunning():
+            self._lookup_worker.finished.disconnect()
+            self._lookup_worker.quit()
+
+        self._lookup_worker = CallsignLookupWorker(
+            call,
+            config.get("qrz_username") or "",
+            config.get("qrz_password") or "",
+        )
+        self._lookup_worker.finished.connect(self._on_lookup_result)
+        self._lookup_worker.start()
+
+    def _on_lookup_result(self, source, data):
+        """Apply callsign lookup results returned from the background worker."""
+        if source == "qrz":
+            fname = data.get("fname", "")
+            lname = data.get("name", "")
             full_name = f"{fname} {lname}".strip()
             if full_name and not self.name_edit.text().strip():
                 self.name_edit.setText(full_name)
-
-            city = result.get("addr2", "")
-            state = result.get("state", "")
+            city = data.get("addr2", "")
+            state = data.get("state", "")
             qth = f"{city}, {state}".strip(", ") if city or state else ""
             if qth and not self.qth_edit.text().strip():
                 self.qth_edit.setText(qth)
             if state and not self.state_edit.text().strip():
                 self.state_edit.setText(state)
-
-            country = result.get("country", "")
+            country = data.get("country", "")
             if country and not self.country_edit.text().strip():
                 self.country_edit.setText(country)
-
-            grid = result.get("grid", "")
+            grid = data.get("grid", "")
             if grid and not self.grid_edit.text().strip():
                 self.grid_edit.setText(grid)
-
             self._qrz_status.setText(full_name or "Found")
             self._qrz_status.setStyleSheet("color: green; font-size: 11px;")
+        elif source == "fcc":
+            full_name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
+            if full_name and not self.name_edit.text().strip():
+                self.name_edit.setText(full_name)
+            city  = data.get("city", "")
+            state = data.get("state", "")
+            qth   = f"{city}, {state}".strip(", ") if city or state else ""
+            if qth and not self.qth_edit.text().strip():
+                self.qth_edit.setText(qth)
+            if state and not self.state_edit.text().strip():
+                self.state_edit.setText(state)
+            lic = data.get("license_class", "")
+            status_text = full_name or "Found"
+            if lic:
+                status_text += f" ({lic})"
+            self._qrz_status.setText(f"{status_text} [FCC]")
+            self._qrz_status.setStyleSheet("color: #5588CC; font-size: 11px;")
         else:
-            # Fall back to local FCC database
-            fcc = fcc_db.lookup(call)
-            if fcc:
-                full_name = f"{fcc.get('first_name', '')} {fcc.get('last_name', '')}".strip()
-                if full_name and not self.name_edit.text().strip():
-                    self.name_edit.setText(full_name)
-                city  = fcc.get("city", "")
-                state = fcc.get("state", "")
-                qth   = f"{city}, {state}".strip(", ") if city or state else ""
-                if qth and not self.qth_edit.text().strip():
-                    self.qth_edit.setText(qth)
-                if state and not self.state_edit.text().strip():
-                    self.state_edit.setText(state)
-                lic = fcc.get("license_class", "")
-                status_text = full_name or "Found"
-                if lic:
-                    status_text += f" ({lic})"
-                self._qrz_status.setText(f"{status_text} [FCC]")
-                self._qrz_status.setStyleSheet("color: #5588CC; font-size: 11px;")
-            else:
-                self._qrz_status.setText("Not found")
-                self._qrz_status.setStyleSheet("color: #CC9944; font-size: 11px;")
+            self._qrz_status.setText("Not found")
+            self._qrz_status.setStyleSheet("color: #CC9944; font-size: 11px;")
 
     def _freq_changed(self, value):
         if self._suppress_auto:

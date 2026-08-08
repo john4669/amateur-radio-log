@@ -479,8 +479,21 @@ class QSODialog(QDialog):
         else:
             self._apply_defaults()
 
+        self._fit_to_screen()
+
     def _build_ui(self):
-        layout = QFormLayout(self)
+        outer = QVBoxLayout(self)
+
+        # Put the form inside a scroll area so the dialog fits on short
+        # screens (e.g. laptops) and scrolls instead of running off-screen.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+
+        layout = QFormLayout(content)
 
         # Call sign
         call_layout = QHBoxLayout()
@@ -662,7 +675,20 @@ class QSODialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(save_btn)
         btn_layout.addWidget(cancel_btn)
-        layout.addRow("", btn_layout)
+        # Buttons live outside the scroll area so they're always reachable.
+        outer.addLayout(btn_layout)
+
+    def _fit_to_screen(self):
+        """Cap the dialog height to the screen so it fits on laptops; the
+        form scrolls inside the scroll area when the content is taller."""
+        screen = self.screen() or QApplication.primaryScreen()
+        if not screen:
+            return
+        avail = screen.availableGeometry()
+        self.setMaximumHeight(avail.height())
+        target_h = min(self.sizeHint().height(), int(avail.height() * 0.90))
+        target_w = max(self.minimumWidth(), self.sizeHint().width())
+        self.resize(target_w, target_h)
 
     def _apply_defaults(self):
         """Set defaults for a new QSO."""

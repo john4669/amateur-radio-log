@@ -33,7 +33,7 @@ import adif
 import fcc_db
 
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 
 # ── Band / Frequency / Mode Constants ─────────────────────────────
@@ -495,8 +495,8 @@ class QSODialog(QDialog):
 
         # Frequency
         self.freq_spin = QDoubleSpinBox()
-        self.freq_spin.setRange(0.0, 99999.999)
-        self.freq_spin.setDecimals(3)
+        self.freq_spin.setRange(0.0, 99999.99999)
+        self.freq_spin.setDecimals(5)
         self.freq_spin.setSuffix(" MHz")
         self.freq_spin.setSpecialValueText(" ")
         self.freq_spin.valueChanged.connect(self._freq_changed)
@@ -669,7 +669,7 @@ class QSODialog(QDialog):
                     self.mode_combo.setCurrentIndex(idx)
             self._suppress_auto = False
             self.freq_spin.setStyleSheet("QDoubleSpinBox { border: 2px solid #66AA66; }")
-            self.freq_spin.setToolTip(f"From flrig: {raw_mode} {freq_mhz:.3f} MHz")
+            self.freq_spin.setToolTip(f"From flrig: {raw_mode} {freq_mhz:.5f} MHz")
         else:
             self.freq_spin.setStyleSheet("QDoubleSpinBox { border: 2px solid #CC9944; }")
             self.freq_spin.setToolTip("flrig not available")
@@ -766,6 +766,13 @@ class QSODialog(QDialog):
         if not call or len(call) < 3:
             return
 
+        # Clear contact fields so lookup results always apply (handles duplicate QSO workflow)
+        self.name_edit.clear()
+        self.qth_edit.clear()
+        self.state_edit.clear()
+        self.country_edit.clear()
+        self.grid_edit.clear()
+
         self._qrz_status.setText("Looking up…")
         self._qrz_status.setStyleSheet("color: gray; font-size: 11px;")
 
@@ -788,33 +795,33 @@ class QSODialog(QDialog):
             fname = data.get("fname", "")
             lname = data.get("name", "")
             full_name = f"{fname} {lname}".strip()
-            if full_name and not self.name_edit.text().strip():
+            if full_name:
                 self.name_edit.setText(full_name)
             city = data.get("addr2", "")
             state = data.get("state", "")
             qth = f"{city}, {state}".strip(", ") if city or state else ""
-            if qth and not self.qth_edit.text().strip():
+            if qth:
                 self.qth_edit.setText(qth)
-            if state and not self.state_edit.text().strip():
+            if state:
                 self.state_edit.setText(state)
             country = data.get("country", "")
-            if country and not self.country_edit.text().strip():
+            if country:
                 self.country_edit.setText(country)
             grid = data.get("grid", "")
-            if grid and not self.grid_edit.text().strip():
+            if grid:
                 self.grid_edit.setText(grid)
             self._qrz_status.setText(full_name or "Found")
             self._qrz_status.setStyleSheet("color: green; font-size: 11px;")
         elif source == "fcc":
             full_name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
-            if full_name and not self.name_edit.text().strip():
+            if full_name:
                 self.name_edit.setText(full_name)
             city  = data.get("city", "")
             state = data.get("state", "")
             qth   = f"{city}, {state}".strip(", ") if city or state else ""
-            if qth and not self.qth_edit.text().strip():
+            if qth:
                 self.qth_edit.setText(qth)
-            if state and not self.state_edit.text().strip():
+            if state:
                 self.state_edit.setText(state)
             lic = data.get("license_class", "")
             status_text = full_name or "Found"
@@ -1087,7 +1094,7 @@ class POTASpotsDialog(QDialog):
             freq_str = spot.get("frequency", "")
             try:
                 freq_khz = float(freq_str)
-                freq_display = f"{freq_khz / 1000.0:.3f}"
+                freq_display = f"{freq_khz / 1000.0:.5f}"
             except (ValueError, TypeError):
                 freq_khz = 0.0
                 freq_display = freq_str
@@ -1150,7 +1157,7 @@ class POTASpotsDialog(QDialog):
             activator = self.table.item(row, 0).text()
             park = self.table.item(row, 1).text()
             self._status_label.setText(
-                f"Tuned: {freq_mhz:.3f} MHz {rig_mode} — {activator} {park}"
+                f"Tuned: {freq_mhz:.5f} MHz {rig_mode} — {activator} {park}"
             )
         except Exception as e:
             QMessageBox.warning(self, "Tune Radio", f"Could not tune radio:\n{e}")
@@ -1407,7 +1414,7 @@ class SettingsDialog(QDialog):
         if result:
             freq, raw_mode, mapped = result
             self.flrig_status_label.setText(
-                f"Connected: {freq:.3f} MHz, {raw_mode}"
+                f"Connected: {freq:.5f} MHz, {raw_mode}"
             )
             self.flrig_status_label.setStyleSheet("color: green;")
         else:
@@ -1751,7 +1758,7 @@ class MainWindow(QMainWindow):
             self._flrig_connected = True
             self._flrig_fail_count = 0
             self._radio_label.setText(
-                f"  Radio: {self._flrig_freq:.3f} MHz  {self._flrig_raw_mode}"
+                f"  Radio: {self._flrig_freq:.5f} MHz  {self._flrig_raw_mode}"
             )
             self._radio_label.setStyleSheet(
                 "font-size: 16px; font-weight: bold; color: #228B22; padding: 2px 8px;"
@@ -2077,7 +2084,7 @@ class MainWindow(QMainWindow):
 
             # Frequency
             freq = r["freq"] or 0.0
-            freq_item = QTableWidgetItem(f"{freq:.3f}" if freq > 0 else "")
+            freq_item = QTableWidgetItem(f"{freq:.5f}" if freq > 0 else "")
             freq_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             freq_item.setData(Qt.UserRole + 1, freq)  # For numeric sorting
             self.table.setItem(row_idx, 5, freq_item)

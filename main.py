@@ -425,6 +425,24 @@ class CallsignLookupWorker(QThread):
             self.finished.emit("none", {})
 
 
+class FlrigPollWorker(QThread):
+    """Polls flrig for frequency/mode off the main thread.
+
+    fetch_flrig() makes blocking XML-RPC calls (up to a 1s socket timeout);
+    running them here keeps the UI responsive even when the radio is slow or
+    flrig is not running.
+    """
+    finished = Signal(object)  # (freq_mhz, raw_mode, mapped_mode) tuple, or None
+
+    def __init__(self, host, port):
+        super().__init__()
+        self._host = host
+        self._port = port
+
+    def run(self):
+        self.finished.emit(fetch_flrig(self._host, self._port))
+
+
 # ════════════════════════════════════════════════════════════════════
 #  QSO Dialog
 # ════════════════════════════════════════════════════════════════════
@@ -1719,6 +1737,7 @@ class MainWindow(QMainWindow):
         self._flrig_mode = ""
         self._flrig_raw_mode = ""
         self._flrig_fail_count = 0
+        self._flrig_worker = None
 
         self.setWindowTitle(f"W0BCQ Logger v{APP_VERSION}")
         self.setMinimumSize(1000, 600)
@@ -1749,10 +1768,19 @@ class MainWindow(QMainWindow):
             if self._flrig_fail_count > 50:
                 self._flrig_fail_count = 4
 
+        # Don't stack polls: if the previous one is still in flight, skip this
+        # tick rather than spawning another thread.
+        if self._flrig_worker and self._flrig_worker.isRunning():
+            return
+
         host = config.get("flrig_host") or "localhost"
         port = config.get("flrig_port") or 12345
-        result = fetch_flrig(host, port)
+        self._flrig_worker = FlrigPollWorker(host, port)
+        self._flrig_worker.finished.connect(self._on_flrig_result)
+        self._flrig_worker.start()
 
+    def _on_flrig_result(self, result):
+        """Apply an flrig poll result returned from the background worker."""
         if result:
             self._flrig_freq, self._flrig_raw_mode, self._flrig_mode = result
             self._flrig_connected = True
@@ -2609,6 +2637,8 @@ class MainWindow(QMainWindow):
         if config.get("auto_backup"):
             self._backup_database()
         self._flrig_timer.stop()
+        if self._flrig_worker and self._flrig_worker.isRunning():
+            self._flrig_worker.wait(2000)
         self._clock_timer.stop()
         self.db.close()
         event.accept()

@@ -86,7 +86,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon='icon_256.png',
+    icon='icon.ico',
 )
 
 coll = COLLECT(

@@ -1,0 +1,24 @@
+# Normalize line endings across Linux, macOS, and Windows.
+# Git stores text blobs as LF; checkout applies the eol rules below,
+# so working trees stay consistent regardless of each machine's
+# core.autocrlf setting (these rules override it).
+
+* text=auto
+
+# Shell scripts must stay LF so they run on Linux/macOS.
+*.sh    text eol=lf
+
+# Windows batch files must stay CRLF.
+*.bat   text eol=crlf
+
+# Source, config, and docs: LF everywhere (repo and working tree).
+*.py    text eol=lf
+*.spec  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+
+# Binary assets — never apply line-ending conversion.
+*.png   binary
+*.ico   binary
+*.db    binary

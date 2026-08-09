@@ -91,7 +91,10 @@ Or create a desktop shortcut:
 This creates a `W0BCQ Logger.app` bundle in the project folder. Drag it to your Desktop or Applications folder. On first launch, right-click > Open if macOS shows a security warning.
 
 **Windows:**
-Right-click `RadioLog.bat` > **Send to > Desktop (create shortcut)**. To give the shortcut the app icon, open its **Properties > Change Icon** and point it at `icon.ico` in the project folder.
+```
+create-shortcut-windows.bat
+```
+This creates a "W0BCQ Logger" shortcut on your Desktop pointing at `RadioLog.bat`, using `icon.ico` as the icon.
 
 ### First-Time Setup
 
@@ -162,6 +165,7 @@ amateur-radio-log/
 ├── RadioLog.sh / RadioLog.bat # Launcher (Linux-macOS / Windows)
 ├── create-shortcut-linux.sh   # Desktop shortcut creator (Linux)
 ├── create-shortcut-mac.sh     # App bundle creator (macOS)
+├── create-shortcut-windows.bat # Desktop shortcut creator (Windows)
 ├── build-windows.bat          # Builds the Windows .exe (PyInstaller)
 ├── W0BCQ_Logger.spec          # PyInstaller build spec
 ├── icon_256.png / icon.ico    # Application icon (PNG / Windows ICO)

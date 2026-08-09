@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QDialogButtonBox, QProgressBar,
 )
 from PySide6.QtCore import Qt, QDate, QTime, QSize, QTimer, Signal, QThread
-from PySide6.QtGui import QAction, QActionGroup, QIcon, QColor, QPalette
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QColor, QPalette, QKeySequence
 
 
 from database import Database
@@ -33,7 +33,7 @@ import adif
 import fcc_db
 
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 
 # ── Band / Frequency / Mode Constants ─────────────────────────────
@@ -606,7 +606,14 @@ class QSODialog(QDialog):
         self.sig_info_edit = QLineEdit()
         self.sig_info_edit.setPlaceholderText("e.g. US-1234")
         sig_layout.addWidget(self.sig_info_edit)
-        layout.addRow("Their Sig / Info:", sig_layout)
+        if self._pota_mode:
+            # During an activation, park-to-park is common: put this field right
+            # under the call sign and auto-tag Their Sig as POTA once a park
+            # reference is entered.
+            self.sig_info_edit.textChanged.connect(self._auto_their_pota)
+            layout.insertRow(1, "Their Park:", sig_layout)
+        else:
+            layout.addRow("Their Sig / Info:", sig_layout)
 
         # My Sig / My Sig Info (your own activity, e.g. you are the activator)
         my_sig_layout = QHBoxLayout()
@@ -689,6 +696,12 @@ class QSODialog(QDialog):
         target_h = min(self.sizeHint().height(), int(avail.height() * 0.90))
         target_w = max(self.minimumWidth(), self.sizeHint().width())
         self.resize(target_w, target_h)
+
+    def _auto_their_pota(self, text):
+        """Park-to-park helper: default Their Sig to POTA once a park reference
+        is typed, so the activator only needs to enter the park number."""
+        if text.strip() and not self.sig_edit.text().strip():
+            self.sig_edit.setText("POTA")
 
     def _apply_defaults(self):
         """Set defaults for a new QSO."""
@@ -1892,7 +1905,7 @@ class MainWindow(QMainWindow):
         qso_menu = menubar.addMenu("&QSO")
 
         add_q = QAction("&Add QSO...", self)
-        add_q.setShortcut("Ctrl+N")
+        add_q.setShortcuts([QKeySequence("Ctrl+N"), QKeySequence("F2")])
         add_q.triggered.connect(self._add_qso)
         qso_menu.addAction(add_q)
 
